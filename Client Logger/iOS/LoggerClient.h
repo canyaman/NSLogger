@@ -231,6 +231,12 @@ extern void LogImageDataF(const char *filename, int lineNumber, const char *func
 extern void LogImageDataTo(Logger *logger, NSString *domain, int level, int width, int height, NSData *data);
 extern void LogImageDataToF(Logger *logger, const char *filename, int lineNumber, const char *functionName, NSString *domain, int level, int width, int height, NSData *data);
 
+// Send json to remote logger
+extern void LogJson(NSString *domain, int level, NSDictionary *dict);
+extern void LogJsonF(const char *filename, int lineNumber, const char *functionName, NSString *domain, int level, NSDictionary *dict);
+extern void LogJsonTo(Logger *logger, NSString *domain,int level, NSDictionary *dict);
+extern void LogJsonToF(Logger *logger, const char *filename, int lineNumber, const char *functionName, NSString *domain, int level, NSDictionary *dict);
+    
 // Mark the start of a block. This allows the remote logger to group blocks together
 extern void LogStartBlock(NSString *format, ...) NS_FORMAT_FUNCTION(1,2);
 extern void LogStartBlockTo(Logger *logger, NSString *format, ...) NS_FORMAT_FUNCTION(2,3);

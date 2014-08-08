@@ -757,6 +757,18 @@ static void LoggerLogToConsole(CFDataRef data)
 			{
 				// ignore image data, we can't log it to console
 			}
+            else if (partType == PART_TYPE_JSON){
+                //TODO: trim all white spaces between json variables
+                // trim whitespace and newline at both ends of the string
+				uint8_t *q = p;
+				uint32_t l = partSize;
+				while (l && (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r'))
+					q++, l--;
+				uint8_t *r = q + l - 1;
+				while (l && (*r == ' ' || *r == '\t' || *r == '\n' || *r == '\r'))
+					r--, l--;
+				part = CFStringCreateWithBytesNoCopy(NULL, q, (CFIndex)l, kCFStringEncodingUTF8, false, kCFAllocatorNull);
+            }
 			else if (partType == PART_TYPE_INT16)
 			{
 				value32 = ((uint32_t)p[0]) << 8 | (uint32_t)p[1];
@@ -2601,6 +2613,62 @@ static void LogImageTo_internal(Logger *logger,
 	}
 }
 
+static void LogJsonTo_internal(Logger *logger,
+							   const char *filename,
+							   int lineNumber,
+							   const char *functionName,
+							   NSString *domain,
+							   int level, NSDictionary *dict)
+{
+	logger = LoggerStart(logger);		// start if needed
+    if (logger != NULL)
+    {
+        int32_t seq = OSAtomicIncrement32Barrier(&logger->messageSeq);
+        LOGGERDBG2(CFSTR("%ld LogJson"), seq);
+        
+        CFMutableDataRef encoder = LoggerMessageCreate(seq);
+        if (encoder != NULL)
+        {
+            LoggerMessageAddInt32(encoder, LOGMSG_TYPE_LOG, PART_KEY_MESSAGE_TYPE);
+            if (domain != nil && [domain length])
+                LoggerMessageAddString(encoder, (CAST_TO_CFSTRING)domain, PART_KEY_TAG);
+            if (level)
+                LoggerMessageAddInt32(encoder, level, PART_KEY_LEVEL);
+            if (filename != NULL)
+                LoggerMessageAddCString(encoder, filename, PART_KEY_FILENAME);
+            if (lineNumber)
+                LoggerMessageAddInt32(encoder, lineNumber, PART_KEY_LINENUMBER);
+            if (functionName != NULL)
+                LoggerMessageAddCString(encoder, functionName, PART_KEY_FUNCTIONNAME);
+            NSData *json=nil;
+            // Dictionary convertable to JSON ?
+            if ([NSJSONSerialization isValidJSONObject:dict])
+            {
+                NSError *error = nil;
+                // Serialize the dictionary
+                json = [NSJSONSerialization dataWithJSONObject:dict options:0 error:&error];
+
+                // If no errors, let's view the JSON
+                if (json == nil || error != nil)
+                {
+                    json=[[NSString  stringWithFormat:@"Json serialization error:%@",error] dataUsingEncoding:NSUTF8StringEncoding];
+                }
+            }else{
+                json=[@"Object can not be converted to JSON" dataUsingEncoding:NSUTF8StringEncoding];
+            }
+            LoggerMessageAddData(encoder, (CAST_TO_CFDATA)json, PART_KEY_MESSAGE, PART_TYPE_JSON);
+            
+			LoggerMessageFinalize(encoder);
+            LoggerPushMessageToQueue(logger, encoder);
+            CFRelease(encoder);
+        }
+        else
+        {
+            LOGGERDBG2(CFSTR("-> failed creating encoder"));
+        }
+    }
+}
+
 static void LogDataTo_internal(Logger *logger,
 							   const char *filename,
 							   int lineNumber,
@@ -2787,6 +2855,26 @@ void LogImageDataTo(Logger *logger, NSString *domain, int level, int width, int 
 void LogImageDataToF(Logger *logger, const char *filename, int lineNumber, const char *functionName, NSString *domain, int level, int width, int height, NSData *data)
 {
 	LogImageTo_internal(logger, filename, lineNumber, functionName, domain, level, width, height, data);
+}
+
+void LogJson(NSString *domain, int level, NSDictionary *dict)
+{
+	LogJsonTo_internal(NULL, NULL, 0, NULL, domain, level, dict);
+}
+
+void LogJsonF(const char *filename, int lineNumber, const char *functionName, NSString *domain, int level, NSDictionary *dict)
+{
+	LogJsonTo_internal(NULL, filename, lineNumber, functionName, domain, level, dict);
+}
+
+void LogJsonTo(Logger *logger, NSString *domain, int level, NSDictionary *dict)
+{
+	LogJsonTo_internal(logger, NULL, 0, NULL, domain, level, dict);
+}
+
+void LogJsonToF(Logger *logger, const char *filename, int lineNumber, const char *functionName, NSString *domain, int level, NSDictionary *dict)
+{
+	LogJsonTo_internal(logger, filename, lineNumber, functionName, domain, level, dict);
 }
 
 void LogStartBlock(NSString *format, ...)

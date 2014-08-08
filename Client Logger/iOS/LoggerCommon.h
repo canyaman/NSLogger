@@ -99,6 +99,7 @@
 #define PART_TYPE_INT32			3
 #define	PART_TYPE_INT64			4
 #define PART_TYPE_IMAGE			5			// An image, stored in PNG format
+#define PART_TYPE_JSON			6
 
 // Data values for the PART_KEY_MESSAGE_TYPE parts
 #define LOGMSG_TYPE_LOG			0			// A standard log message
